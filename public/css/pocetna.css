@@ -22,6 +22,7 @@ body {
 }
 .btn-index {
 	color: white;
+	border: none;
 	width: 100%;
 }
 .btn-index:hover {
