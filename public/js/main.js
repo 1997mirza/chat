@@ -1,53 +1,72 @@
 const socket = io();
 const chatMessages = document.querySelector('.chat-messages')
-const chatFrom = document.querySelector('.btn-send')
+const chatForm = document.querySelector('.btn-send')
 let listOfActiveUsers = document.querySelector('#users')
 
-chatFrom.addEventListener('click', (e) => {
+chatForm.addEventListener('click', (e) => {
     e.preventDefault();
-    const msg = document.querySelector('#msg').value
-    document.querySelector('#msg').value = ""
-    document.querySelector('#msg').focus();
-    socket.emit('chatMessage', msg)
-})
-socket.on('msg', msg => {
-    console.log(msg)
-    outputMessage(msg)
+     let text = document.querySelector('#msg').value
+     let msg = {"posiljaoc":localStorage.getItem('nick'),"vrijeme":new Date().toLocaleTimeString(),"text":text}
+     socket.emit('newMessage',msg)
+     document.querySelector('#msg').value = ""
+     document.querySelector('#msg').focus();
 })
 socket.on('WelcomeMessage', msg => {
-    outputMessage(msg)
+    outputMessage("server",new Date().toLocaleTimeString(),msg)
     socket.emit('makeMeActive', localStorage.getItem("nick"))
 
 })
 socket.on('newActiveUser', msg => {
     if (msg !== localStorage.getItem('nick')){
     msgToPrint = "Korisnik " + msg + " se pridružio razgovoru"
-    outputMessage(msgToPrint)
+    outputMessage("server",new Date().toLocaleTimeString(),msgToPrint)
 } 
     
 })
 socket.on('updatedList', list => {
-    console.log(list)
     resetSidebar(list)
 })
 socket.on('chat', msg => {
-    console.log(msg)
-
+    for (let i = 0; i < msg.length; i++) {
+      outputMessage(msg[i].posiljaoc,msg[i].vrijeme,msg[i].poruka)
+    }
 })
-function outputMessage(msg) {
+socket.on('userOut',msg => {
+    msgToPrint = "Korisnik " + msg.nick + " je napustio razgovor"
+    outputMessage("server",new Date().toLocaleTimeString(),msgToPrint)
+})
+socket.on('newMessage',msg => {
+    outputMessage(msg.posiljaoc,msg.vrijeme,msg.text)
+})
+//// p2p
+socket.on("bla",msg=>{
+    console.log(msg)
+})
+
+function outputMessage(user,time,text) {
+    let class_="";
     const div = document.createElement('div')
-    div.classList.add('message')
+    if(user === "server" ){
+    class_='message-server'
+    } else if (user === localStorage.getItem("nick")){
+        class_='message-user'
+    } else {
+        class_='message-mes'
+    }
+    div.classList.add('message')    
+
     div.innerHTML = `
-    <p class="meta">Brad <span>9:12pm</span></p>
+    <div class="message">
+    <p class="meta">${user} <span>${time}</span></p>
     <p class="text">
-        ${msg}
+        ${text}
     </p>
+    </div>
    `
     document.querySelector('.chat-messages').appendChild(div)
     chatMessages.scrollTop = chatMessages.scrollHeight
 }
 function resetSidebar(list) {
-    console.log(list)
     let listUsers = ``
     for (let i = 0; i < list.length; i++) {
         if (list[i] == localStorage.getItem('nick')) continue
@@ -102,6 +121,7 @@ function generateNick() {
 function showChat() {
     document.querySelector('#pocetna').style.display = "none";
     document.querySelector('#chat').style.display = "block";
-
+    chatMessages.scrollTop = chatMessages.scrollHeight
+    document.querySelector('#msg').focus();
 }
 

@@ -29,3 +29,7 @@ body {
 	border: white solid 2px;
 	border-radius: 5px;
 }
+
+.chat-history-users:hover {
+	text-decoration: underline;
+}

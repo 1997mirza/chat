@@ -60,14 +60,16 @@
 
 .chat-messages .message {
 	padding: 10px;
+    background-color: #e6e9ff;
 	margin-bottom: 15px;
 	border-radius: 5px;
-}
+	overflow-wrap: break-word;}
+
 
 .chat-messages .message .meta {
 	font-size: 15px;
 	font-weight: bold;
-	color: var(--dark-color-b);
+	color: #7386ff;
 	opacity: 0.7;
 	margin-bottom: 7px;
 }
@@ -75,6 +77,10 @@
 .chat-messages .message .meta span {
 	color: #777;
 }
+
+
+
+
 
 .chat-form-container {
 	margin-left: 10px;

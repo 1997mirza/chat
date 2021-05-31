@@ -14,62 +14,54 @@ const app = express();
 const server = http.createServer(app)
 const io = socketio(server)
 const db = mongojs('chat', ['otvoreni'])
-let activeUsersList = []
-let arrayToFilter = [];
+const { removeDuplicates, removeUserFromList, connectionsCounter, findUserToOut } = require('./utils/functions')
 
+let activeUsersList = []
 
 app.use(express.static(path.join(__dirname, 'public')))
 
-// slusam na konekciju klijenta, odgovaram pozdravnom porukom
+// listen to user conn...
 io.on('connection', socket => {
-
     db.otvoreni.find({}, (err, messages) => {
-        io.emit('chat', messages)
+        socket.emit('chat', messages)
+        socket.emit('WelcomeMessage', 'Dobro došli na chat!')
     })
-    socket.emit('WelcomeMessage', 'Dobro došli na chat!')
+    
     socket.on('makeMeActive', user => {
         let userToList = { "nick": user, "id": socket.id }
         activeUsersList.push(userToList)
-        let counter = 0;
-        activeUsersList.forEach(element => {
-            if(element.nick === userToList.nick) counter++
-        });
-        if(counter == 1) 
-        {
+        //number of  connections of the same user (more tabs, one browser)
+        let counter = connectionsCounter(activeUsersList, userToList)
+        // counter = 1 => new active user, emit newActiveUser
+        // counter > 1 => new tab in browser, send list of active users
+        if (counter == 1) {
             socket.broadcast.emit('newActiveUser', user)
-        arrayToFilter = []
-        for (let i = 0; i < activeUsersList.length; i++) {
-            arrayToFilter.push(activeUsersList[i].nick)
-        }
-        uniqueArray = removeDuplicates(arrayToFilter)
-        console.log(uniqueArray)
-        io.emit('updatedList', uniqueArray)
-        }
-    })
-    // when client disc.
-    socket.on('disconnect', () => {
-        let userForOut = ""
-        let counter = 0;
-        for (let i = 0; i < activeUsersList.length; i++) {
-            if (socket.id === activeUsersList[i].id) userForOut = activeUsersList[i]
-        }
-        activeUsersList = removeDuplicates1(activeUsersList,userForOut)
-
-        for (let i = 0; i < activeUsersList.length; i++) {
-            if (userForOut.nick === activeUsersList[i].nick) counter++
-        }
-        if(counter == 0) {
-            let index = uniqueArray.indexOf(userForOut.nick)
-            uniqueArray.splice(index,1)
+            uniqueArray = removeDuplicates(activeUsersList)
             io.emit('updatedList', uniqueArray)
+        } else {
+            io.to(socket.id).emit("updatedList", removeDuplicates(activeUsersList))
         }
-       
     })
-    //Listen for chatMessage
-    socket.on('chatMessage', (msg) => {
-        db.otvoreni.insert({ "posiljalac": 'Ivo', 'vrijeme': "20:20", "poruka": msg }, (err, messages) => {
-            io.emit('msg', msg)
-        })
+    // listen to user conn...
+    socket.on('disconnect', () => {
+        let userForOut = findUserToOut(activeUsersList, socket.id)
+        activeUsersList = removeUserFromList(activeUsersList, userForOut)
+        let counter = connectionsCounter(activeUsersList, userForOut)
+        if (counter == 0) {
+            // counter = 0 => no more tabs, user is out, broadcast to other users
+            // counter > 0 do nothing
+            let index = uniqueArray.indexOf(userForOut.nick)
+            uniqueArray.splice(index, 1)
+            io.emit('updatedList', uniqueArray)
+            io.emit('userOut', userForOut)
+        }
+    })
+    //listen to the chat
+    socket.on('newMessage', (msg) => {
+        db.otvoreni.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
+             if (err) throw err
+             io.emit('newMessage', msg)
+         })
     })
 })
 
@@ -77,13 +69,3 @@ server.listen(PORT, () => {
     console.log('slusam na 3000');
 })
 
-function removeDuplicates(data) {
-    return data.filter((value,index) => data.indexOf(value) === index)
-}
-function removeDuplicates1(data,za) {
-    let newArray = [];
-    newArray = data.filter(el => {
-        return el.id != za.id
-    })
-    return newArray
-}
