@@ -13,7 +13,7 @@ const IN_PROD = NODE_ENV == "production" // za do
 const app = express();
 const server = http.createServer(app)
 const io = socketio(server)
-const db = mongojs('chat', ['otvoreni'])
+const db = mongojs('chat', ['otvoreni', 'direktni', 'historija'])
 const { removeDuplicates, removeUserFromList, connectionsCounter, findUserToOut } = require('./utils/functions')
 
 let activeUsersList = []
@@ -26,7 +26,7 @@ io.on('connection', socket => {
         socket.emit('chat', messages)
         socket.emit('WelcomeMessage', 'Dobro došli na chat!')
     })
-    
+
     socket.on('makeMeActive', user => {
         let userToList = { "nick": user, "id": socket.id }
         activeUsersList.push(userToList)
@@ -59,10 +59,31 @@ io.on('connection', socket => {
     //listen to the chat
     socket.on('newMessage', (msg) => {
         db.otvoreni.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
-             if (err) throw err
-             io.emit('newMessage', msg)
-         })
+            if (err) throw err
+            io.emit('newMessage', msg)
+        })
     })
+    // 1v1 chat
+    socket.on('newConversation', msg => {
+        //u poruci imam user1v1 to je onaj kome saljem, socket.id je moj i sad prvo da provjerim u bazi ima li razgovor izmedu 2 usera
+        let primalac = msg.primalac;
+        let posiljaoc = msg.posiljaoc;
+        db.direktni.find({ $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
+        { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }] }, (err, result) => {
+           socket.emit("newConversation",result)
+        })
+    })
+    socket.on('new1v1Message', msg => {
+        db.direktni.insert(msg, (err) => {
+            if (err) throw err
+            for (let i = 0; i < activeUsersList.length; i++) {
+                if (activeUsersList[i].nick === msg.posiljaoc || activeUsersList[i].nick === msg.primalac) {
+                    io.to(activeUsersList[i].id).emit("new1v1Message", msg)
+                }
+            }
+        })
+    })
+
 })
 
 server.listen(PORT, () => {
