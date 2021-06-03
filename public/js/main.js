@@ -1,20 +1,22 @@
 const socket = io();
-const chatMessages = document.querySelector('.chat-messages')
+const chatMessages = document.querySelector('.chat-body')
 const chatForm = document.querySelector('.btn-send')
 let listOfActiveUsers = document.querySelector('#users')
 let allActiveUsers = ""
-const mainChat = document.querySelector('.chat-messages')
-const chat1v1 = document.querySelector('.chat-messages1-1')
+const mainChat = document.querySelector('.chat-body')
+const chat1v1 = document.querySelector('.chat-body1')
 const showMainChat = document.querySelector('#show-chat')
+const chatNav = document.querySelector('.chat-nav-li')
 let activeChat = "mainChat"
 let user1v1="";
 let currentUser1v1="";
 
 
 
+
 chatForm.addEventListener('click', (e) => {
     e.preventDefault();
-    let text = document.querySelector('#msg').value
+    let text = document.querySelector('.input-field1').value
     if(activeChat == "mainChat") {
         let msg = {"posiljaoc":localStorage.getItem('nick'),"vrijeme":new Date().toLocaleTimeString(),"text":text}
         socket.emit('newMessage',msg) 
@@ -22,13 +24,12 @@ chatForm.addEventListener('click', (e) => {
         let msg={"posiljaoc":localStorage.getItem('nick'),"primalac":user1v1,"vrijeme":new Date().toLocaleTimeString(),"poruka":text}
         socket.emit('new1v1Message',msg) 
     }
-     document.querySelector('#msg').value = ""
-     document.querySelector('#msg').focus();
+     document.querySelector('.input-field').value = ""
+     document.querySelector('.input-field').focus();
 })
 socket.on('WelcomeMessage', msg => {
-    outputMessage("server",new Date().toLocaleTimeString(),msg)
-    socket.emit('makeMeActive', localStorage.getItem("nick"))
-
+        outputMessage("server",new Date().toLocaleTimeString(),msg)
+        
 })
 socket.on('newActiveUser', msg => {
     if (msg !== localStorage.getItem('nick')){
@@ -50,6 +51,7 @@ socket.on('userOut',msg => {
     outputMessage("server",new Date().toLocaleTimeString(),msgToPrint)
 })
 socket.on('newMessage',msg => {
+    console.log(msg)
     outputMessage(msg.posiljaoc,msg.vrijeme,msg.text)
 })
 
@@ -64,20 +66,20 @@ socket.on("newConversation",msg=>{
    }
 })
 socket.on("new1v1Message",msg=>{
-     outputMessage1(msg.posiljaoc,msg.vrijeme,msg.poruka) 
+    outputMessage1(msg.posiljaoc,msg.vrijeme,msg.poruka) 
  })
 
 
 function outputMessage(user,time,text) {
     let class_="";
     const div = document.createElement('div')
-    if(user === "server" ){
-    class_='message-server'
-    } else if (user === localStorage.getItem("nick")){
-        class_='message-user'
-    } else {
-        class_='message-mes'
-    }
+    // if(user === "server" ){
+    // class_='message-server'
+    // } else if (user === localStorage.getItem("nick")){
+    //     class_='message-user'
+    // } else {
+    //     class_='message-mes'
+    // }
     div.classList.add('message')    
 
     div.innerHTML = `
@@ -88,19 +90,19 @@ function outputMessage(user,time,text) {
     </p>
     </div>
    `
-    document.querySelector('.chat-messages').appendChild(div)
+    document.querySelector('.chat-body').appendChild(div)
     chatMessages.scrollTop = chatMessages.scrollHeight
 }
 function outputMessage1(user,time,text) {
     let class_="";
     const div = document.createElement('div')
-    if(user === "server" ){
-    class_='message-server'
-    } else if (user === localStorage.getItem("nick")){
-        class_='message-user'
-    } else {
-        class_='message-mes'
-    }
+    // if(user === "server" ){
+    // class_='message-server'
+    // } else if (user === localStorage.getItem("nick")){
+    //     class_='message-user'
+    // } else {
+    //     class_='message-mes'
+    // }
     div.classList.add('message')    
 
     div.innerHTML = `
@@ -111,18 +113,20 @@ function outputMessage1(user,time,text) {
     </p>
     </div>
    `
-    document.querySelector('.chat-messages1-1').appendChild(div)
+    document.querySelector('.chat-body1').appendChild(div)
     chatMessages.scrollTop = chatMessages.scrollHeight
 }
 const resetSidebar =(list)=> {
+    console.log("asdas")
     let listUsers = ``
     for (let i = 0; i < list.length; i++) {
         if (list[i] == localStorage.getItem('nick')) continue
         listUsers += `
-        <li onclick="myFunction('${list[i]}')" class="sidebar-li">${list[i]}</>
+        <li onclick="myFunction('${list[i]}')">${list[i]}</>
         `
     }
     listOfActiveUsers.innerHTML = listUsers;
+    chatNav.innerHTML=listUsers;
 
 }
 function myFunction(e) {
@@ -130,7 +134,7 @@ function myFunction(e) {
     activeChat = "chat1v1"
     user1v1 = e;
     if(e != currentUser1v1) {
-        // odi po historiju chata ako ima
+        // odi po historiju chata ako imay
         let msg= {"posiljaoc":localStorage.getItem('nick'),"primalac":e}
         socket.emit('newConversation',msg) 
         chat1v1.innerHTML=""
@@ -164,6 +168,7 @@ function getNick() {
         generateNick();
     } else {
         document.querySelector('#nik').innerHTML = localStorage.getItem("nick")
+        socket.emit('makeMeActive', localStorage.getItem("nick")) 
     }
 }
 function generateNick() {
@@ -183,14 +188,22 @@ function generateNick() {
                 brojevi.length)));
         }
     }
-    document.querySelector('#nik').innerHTML = nick.join('');
-    localStorage.setItem('nick', nick.join(''));
-
+    
+    socket.emit("checkNick",nick.join(''))
 }
+socket.on('checkNick',msg=>{
+    if(msg){
+    document.querySelector('#nik').innerHTML = msg;
+    localStorage.setItem('nick', msg);
+    socket.emit('makeMeActive', msg) 
+    }else {
+        generateNick()
+    }
+})
 function showChat() {
-    document.querySelector('#pocetna').style.display = "none";
-    document.querySelector('#chat').style.display = "block";
-    chatMessages.scrollTop = chatMessages.scrollHeight
-    document.querySelector('#msg').focus();
+    document.querySelector('.welcome-container').style.display = "none";
+    document.querySelector('.chat-container').style.display = "flex";
+    //chatMessages.scrollTop = chatMessages.scrollHeight
+    //document.querySelector('#msg').focus();
 }
 

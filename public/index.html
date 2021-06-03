@@ -2,75 +2,71 @@
 <html lang="en">
 
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<meta http-equiv="X-UA-Compatible" content="ie=edge" />
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
-		integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-		integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-		<link rel="stylesheet" href="css/pocetna.css" />
-        <link rel="stylesheet" href="css/chat.css" />
-	<title>ChatCord App</title>
-
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="css/main.css">
 </head>
 
 <body onload="getNick()">
-    <script src="/socket.io/socket.io.js"></script> 
-	<div class="pocetna-container" id="pocetna">
-		<main class="pocetna-main">
-			<h5 class="text-center flex-item">Dobro došli</h5>
-			<h5 class="text-center flex-item">Vaš nik:</h5>
-			<h5 class="text-center"  id="nik"></h5>
-			<button class="bg-transparent btn-index" onclick="showChat();">Pridruži se chatu</button>
-		</main>
-	</div>
-	  <div class="container" id="chat">
-    <header class="chat-header">
-      <div onclick="openNav()" class="trigger"><div class="trigger-text">☰</div></div>
-      <h4 id="show-chat">Imate novu poruku od:xaho23 ( otvoreni chat )</h4>
-    </header>
-    <main class="chat-main">
-      <div id="mySidenav" class="sidenav">
-        <a style="color:white" href="javascript:void(0)" class="close-btn" onclick="closeNav()">☰</a>
-        <a style="color:white" href="#">Aktivni:</a>
-        <button class="btn bg-transparent btn-index" >nasa22</button>
-        <a style="color:white" href="#">Historija:</a>
-        <button class="btn bg-transparent btn-index" >miro99</button>
-      </div>
-      <div class="chat-sidebar">
-        <h5> Aktivni:</h5>
-        <ul id="users">
-        </ul>
-        <h5> Historija</h5>
-        <ul id="users">
-          <li class="chat-history-users">Brad</li>
-          <li class="chat-history-users">John</li>
-          <li class="chat-history-users">Mary</li>
-          <li class="chat-history-users">Paul</li>
-          <li class="chat-history-users">Mike</li>
-        </ul>
-      </div>
-      <div class="chat-messages">
-      </div>
-      <div class="chat-messages1-1">
+    <script src="/socket.io/socket.io.js"></script>
+    <div class="container">
+        <div class="welcome-container">
+            <h5>Dobro došli</h5>
+            <h5>Vaš nik:</h5>
+            <h5 class="text-center" id="nik">Neki nik</h5>
+            <button class="bg-transparent btn-index" onclick="showChat();">Pridruži se chatu</button>
+        </div>
+        <div class="chat-container">
+            <div class="col-1">
+                <h3>Aktivni korisnici</h3>
+                <ul id="users" >
+                </ul>
+            </div>
+            <div class="col-2">
+                <div class="chat-header">
+                    <div style="flex-basis: 95%;" type="text" id="show-chat"><p>Imate novu poruku od jaja23</p> </div>
+                    <div style="flex-basis: 5%;"  id="toggle"><p>☰</p></div>
+                </div>
+                <div class="chat-nav">
+                    <h3>Aktivni korisnici</h3> 
+                    <ul class="chat-nav-li">
+
+                    </ul>
+                  
+                </div>
+                <div class="chat-body">
+                </div>
+                <div class="chat-body1">
+                </div>
+                <div class="chat-footer">
+                    <div class="input-field" style="flex-basis: 85%;"  type="text"><input class="input-field1" type="text"></div>
+                    <div class="btn-send" style="flex-basis:15%;"  type="text"><button class="btn-send1">Pošalji</button></div>
+                </div>
+
+            </div>
+        </div>
+
     </div>
-      
-    </main>
-    <div class="chat-form-container">
-      <form id="chat-form" >
-        <input
-          id="msg"
-          class="inpit-form-class"
-          type="text"
-          placeholder="Enter Message"
-          required
-          autocomplete="off"
-        />
-        <button class="btn-send">Pošalji</button>
-      </form>
-    </div>
-  </div>
-<script src="js/main.js"></script>
+    <script src="js/main.js"></script>
 </body>
+<script>
+    let x = document.querySelector('#toggle')
+    let y = document.querySelector('.chat-nav')
+    y.style.height="0px"
+    y.addEventListener('click', () => {
+        y.style.height="0px"
+    })
+
+    x.addEventListener('click', () => {
+       if(y.style.height == "0px") {
+           y.style.height="50%"
+       }else {
+        y.style.height="0px"
+       }
+    })
+
+</script>
+
 </html>

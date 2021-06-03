@@ -3,20 +3,20 @@ const http = require('http')
 const express = require('express')
 const socketio = require('socket.io')
 const mongojs = require('mongojs')
-const { Socket } = require('dgram')
-const { count } = require('console')
+
 const {
-    PORT = 3000,
+    PORT = 80,
     NODE_ENV = "development"
 } = process.env;
 const IN_PROD = NODE_ENV == "production" // za do
 const app = express();
 const server = http.createServer(app)
 const io = socketio(server)
-const db = mongojs('chat', ['otvoreni', 'direktni', 'historija'])
+const db = mongojs('chat', ['otvoreni', 'direktni'])
 const { removeDuplicates, removeUserFromList, connectionsCounter, findUserToOut } = require('./utils/functions')
 
 let activeUsersList = []
+
 
 app.use(express.static(path.join(__dirname, 'public')))
 
@@ -25,6 +25,19 @@ io.on('connection', socket => {
     db.otvoreni.find({}, (err, messages) => {
         socket.emit('chat', messages)
         socket.emit('WelcomeMessage', 'Dobro došli na chat!')
+    })
+
+    socket.on('checkNick',(nick)=>{
+        console.log("dosao da provjeri",nick)
+        db.historija.findOne({"user":nick},(err,result)=>{
+            if(err) throw err;
+            if(!result){
+                socket.emit('checkNick',nick)
+                db.historija.insert({"user":nick})
+            } else {
+                socket.emit('checkNick',false)
+            }
+        })
     })
 
     socket.on('makeMeActive', user => {
@@ -58,6 +71,7 @@ io.on('connection', socket => {
     })
     //listen to the chat
     socket.on('newMessage', (msg) => {
+        console.log(msg)
         db.otvoreni.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
             if (err) throw err
             io.emit('newMessage', msg)
@@ -68,9 +82,11 @@ io.on('connection', socket => {
         //u poruci imam user1v1 to je onaj kome saljem, socket.id je moj i sad prvo da provjerim u bazi ima li razgovor izmedu 2 usera
         let primalac = msg.primalac;
         let posiljaoc = msg.posiljaoc;
-        db.direktni.find({ $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
-        { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }] }, (err, result) => {
-           socket.emit("newConversation",result)
+        db.direktni.find({
+            $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
+            { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }]
+        }, (err, result) => {
+            socket.emit("newConversation", result)
         })
     })
     socket.on('new1v1Message', msg => {
@@ -85,6 +101,7 @@ io.on('connection', socket => {
     })
 
 })
+
 
 server.listen(PORT, () => {
     console.log('slusam na 3000');
