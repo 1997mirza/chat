@@ -3,37 +3,42 @@ const http = require('http')
 const express = require('express')
 const socketio = require('socket.io')
 const mongojs = require('mongojs')
-
-const {
-    PORT = 80,
-    NODE_ENV = "development"
-} = process.env;
-const IN_PROD = NODE_ENV == "production" // za do
 const app = express();
 const server = http.createServer(app)
 const io = socketio(server)
-const db = mongojs('chat', ['otvoreni', 'direktni'])
-const { removeDuplicates, removeUserFromList, connectionsCounter, findUserToOut } = require('./utils/functions')
+const db = mongojs('chat', ['chatHistory', 'chatPrivate','users'])
+const { findInactiveUsers,updateActiveList,isUserActive,makeOnlineList} = require('./utils/functions')
+const {
+    PORT = 3000,
+    NODE_ENV = "development"
+} = process.env;
 
-let activeUsersList = []
+const IN_PROD = NODE_ENV == "production" 
+
+let activeUsers = [] // lista koja cuva aktivne korisnike sa pripadajucim id-ivima konekcija
 
 
 app.use(express.static(path.join(__dirname, 'public')))
 
-// listen to user conn...
+// slusam na konekciju, posalji pozdravnu poruku i historiju chata novom sudioniku
 io.on('connection', socket => {
-    db.otvoreni.find({}, (err, messages) => {
-        socket.emit('chat', messages)
+    db.chatHistory.find({}, (err, data) => {
+        socket.emit('Chat-history', data)
         socket.emit('WelcomeMessage', 'Dobro došli na chat!')
+        let clients =Object.keys(io.sockets.sockets); 
+        let onlineUsers = makeOnlineList(clients,activeUsers)
+        socket.emit('updatedList',onlineUsers)    
     })
-
+    //novi korisnik ako random nik vec postoji u bazi, vrati false, a frontend ce generisati novi nik
+    //i taka sve dok ne dobije slobodan nik, kad dobije slobodan nik spremi ga u bazu i vrati korisniku true tj. nik
     socket.on('checkNick',(nick)=>{
-        console.log("dosao da provjeri",nick)
-        db.historija.findOne({"user":nick},(err,result)=>{
+        db.users.findOne({"user":nick},(err,result)=>{
             if(err) throw err;
             if(!result){
                 socket.emit('checkNick',nick)
-                db.historija.insert({"user":nick})
+                db.users.insert({"user":nick},err=>{
+                    if(err) throw err
+                })
             } else {
                 socket.emit('checkNick',false)
             }
@@ -41,66 +46,83 @@ io.on('connection', socket => {
     })
 
     socket.on('makeMeActive', user => {
-        let userToList = { "nick": user, "id": socket.id }
-        activeUsersList.push(userToList)
-        //number of  connections of the same user (more tabs, one browser)
-        let counter = connectionsCounter(activeUsersList, userToList)
-        // counter = 1 => new active user, emit newActiveUser
-        // counter > 1 => new tab in browser, send list of active users
-        if (counter == 1) {
-            socket.broadcast.emit('newActiveUser', user)
-            uniqueArray = removeDuplicates(activeUsersList)
-            io.emit('updatedList', uniqueArray)
+        let clients =Object.keys(io.sockets.sockets); 
+        let newUser = { "nick": user, "id": socket.id }
+         /*provjeri da li je korisnik vec pristupio iz drugog taba,
+        ako nije obavijesti ostale sudionike o novom korisniku,
+        te osvježi njihove liste aktivnih korisnika,
+        a ako jeste emituj listu aktivnih korisnika*/
+        let check= isUserActive(activeUsers,newUser)
+        if(!check){
+            socket.broadcast.emit('newActiveUser',newUser.nick)     
+            activeUsers.push(newUser)  
+            let onlineUsers = makeOnlineList(clients,activeUsers)
+            socket.broadcast.emit('updatedList',onlineUsers)     
         } else {
-            io.to(socket.id).emit("updatedList", removeDuplicates(activeUsersList))
+
+            activeUsers.push(newUser)  
+            let onlineUsers = makeOnlineList(clients,activeUsers)
+            socket.broadcast.emit('updatedList',onlineUsers)     
         }
+        
     })
-    // listen to user conn...
+    /*kada korisnik izadje, obavjesti ostale sudionike,
+    osim ako ima jos aktivnih tabova*/
     socket.on('disconnect', () => {
-        let userForOut = findUserToOut(activeUsersList, socket.id)
-        activeUsersList = removeUserFromList(activeUsersList, userForOut)
-        let counter = connectionsCounter(activeUsersList, userForOut)
-        if (counter == 0) {
-            // counter = 0 => no more tabs, user is out, broadcast to other users
-            // counter > 0 do nothing
-            let index = uniqueArray.indexOf(userForOut.nick)
-            uniqueArray.splice(index, 1)
-            io.emit('updatedList', uniqueArray)
-            io.emit('userOut', userForOut)
+        var clients =Object.keys(io.sockets.sockets); 
+        /*poređenje liste prijavljenih korisnika sa listom akvtivnih konekcija
+        kako lista aktivnih korisnika nebi sadržavala korisnike
+        kojima je pukla veza*/
+        let userWithNoConn = findInactiveUsers(clients,activeUsers)
+        if (userWithNoConn.length > 0) {
+            for (let i = 0; i < userWithNoConn.length; i++) {
+                io.emit('userOut', userWithNoConn[i])
+            }
         }
+        /*osvježi listu prijavljenih korisnika,
+        te na osnovu nje kreiraj novu listu online korisnika,
+        ali bez duplikata( ako je neko otvorio više tabova )*/
+        activeUsers=updateActiveList(clients,activeUsers)
+        let onlineUsers = makeOnlineList(clients,activeUsers)
+        io.emit('updatedList', onlineUsers)
     })
-    //listen to the chat
+    /*nova poruka u grupnom chatu, poruku spremiti u bazu,
+    pa tek onda emitovati svima ukljucujuci i posiljatelja*/
     socket.on('newMessage', (msg) => {
-        console.log(msg)
-        db.otvoreni.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
+        db.chatHistory.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
             if (err) throw err
             io.emit('newMessage', msg)
         })
     })
-    // 1v1 chat
+    // novi privatni razgovor
+    /* Provjeri u bp da li postoji historija otvorenog razgovora,
+    ako postoji, posalji je  */
     socket.on('newConversation', msg => {
-        //u poruci imam user1v1 to je onaj kome saljem, socket.id je moj i sad prvo da provjerim u bazi ima li razgovor izmedu 2 usera
         let primalac = msg.primalac;
         let posiljaoc = msg.posiljaoc;
-        db.direktni.find({
+        db.chatPrivate.find({
             $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
             { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }]
         }, (err, result) => {
+            if(err) throw err
             socket.emit("newConversation", result)
         })
     })
-    socket.on('new1v1Message', msg => {
-        db.direktni.insert(msg, (err) => {
-            if (err) throw err
-            for (let i = 0; i < activeUsersList.length; i++) {
-                if (activeUsersList[i].nick === msg.posiljaoc || activeUsersList[i].nick === msg.primalac) {
-                    io.to(activeUsersList[i].id).emit("new1v1Message", msg)
+    /* nova poruka u privatnom razgovoru,
+    spremiti poruku u bazu pa je emitovati ucesnicima u daom razgovoru */
+    socket.on('privateMessage', msg => {
+        db.chatPrivate.insert(msg, (err) => {
+            if(err) throw err
+            for (let i = 0; i < activeUsers.length; i++) {
+                if (activeUsers[i].nick === msg.posiljaoc || activeUsers[i].nick === msg.primalac) {
+                    io.to(activeUsers[i].id).emit("privateMessage", msg)
                 }
             }
         })
     })
 
 })
+
 
 
 server.listen(PORT, () => {

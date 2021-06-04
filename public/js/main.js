@@ -1,176 +1,174 @@
 const socket = io();
-const chatMessages = document.querySelector('.chat-body')
-const chatForm = document.querySelector('.btn-send')
+const btnSend = document.querySelector('.chat-footer-right')
+const mainChat = document.querySelector('.chat-body')
+const privateChat = document.querySelector('.chat-private')
+const chatNav = document.querySelector('.pop-up-list-li')
+const enterBtn = document.querySelector('#btnEnter')
+const inputForm = document.querySelector('.input-field')
+const notification = document.querySelector('#notification')
+const mainChatToggle = document.querySelector('#mainChatToggle')
+let activeChat = "mainChat"
+let user1v1 = "";
+let currentUserPrivateChat = ""; // korisnik sa kojim je aktivan privatni chat
 let listOfActiveUsers = document.querySelector('#users')
 let allActiveUsers = ""
-const mainChat = document.querySelector('.chat-body')
-const chat1v1 = document.querySelector('.chat-body1')
-const showMainChat = document.querySelector('#show-chat')
-const chatNav = document.querySelector('.chat-nav-li')
-let activeChat = "mainChat"
-let user1v1="";
-let currentUser1v1="";
 
-
-
-
-chatForm.addEventListener('click', (e) => {
+// prikazi chat, skloni pocetni zaslon
+enterBtn.addEventListener('click', () => {
+    document.querySelector('.welcome-container').style.display = "none";
+    document.querySelector('.chat-container').style.display = "flex";
+    inputForm.focus();
+    mainChat.scrollTop = mainChat.scrollHeight;
+    console.log("sdasdasd")
+})
+//provjeri da li je aktivan grupni ili privatni chat, pa posalji poruku
+btnSend.addEventListener('click', (e) => {
     e.preventDefault();
-    let text = document.querySelector('.input-field1').value
-    if(activeChat == "mainChat") {
-        let msg = {"posiljaoc":localStorage.getItem('nick'),"vrijeme":new Date().toLocaleTimeString(),"text":text}
-        socket.emit('newMessage',msg) 
-    }else {
-        let msg={"posiljaoc":localStorage.getItem('nick'),"primalac":user1v1,"vrijeme":new Date().toLocaleTimeString(),"poruka":text}
-        socket.emit('new1v1Message',msg) 
+    let text = inputForm.value
+    if (activeChat == "mainChat") {
+        let msg = { "posiljaoc": localStorage.getItem('nick'), "vrijeme": new Date().toLocaleTimeString(), "text": text }
+        socket.emit('newMessage', msg)
+    } else {
+        let msg = { "posiljaoc": localStorage.getItem('nick'), "primalac": user1v1, "vrijeme": new Date().toLocaleTimeString(), "poruka": text }
+        socket.emit('privateMessage', msg)
     }
-     document.querySelector('.input-field').value = ""
-     document.querySelector('.input-field').focus();
+    inputForm.value = ""
+    inputForm.focus();
 })
+//ispisi prijasnje poruke prije svega
+socket.on('Chat-history', msg => {
+    for (let i = 0; i < msg.length; i++) {
+        outputMessage(msg[i].posiljaoc, msg[i].vrijeme, msg[i].poruka, "mainChat")
+    }
+})
+//prikazi pozdravnu poruku korisniku
 socket.on('WelcomeMessage', msg => {
-        outputMessage("server",new Date().toLocaleTimeString(),msg)
-        
+    outputMessage("server", new Date().toLocaleTimeString(), msg, "mainChat")
 })
+//obavjesti sudionike o novom korisniku
 socket.on('newActiveUser', msg => {
-    if (msg !== localStorage.getItem('nick')){
-    msgToPrint = "Korisnik " + msg + " se pridružio razgovoru"
-    outputMessage("server",new Date().toLocaleTimeString(),msgToPrint)
-} 
-    
+    if (msg !== localStorage.getItem('nick')) {
+        msgToPrint = "Korisnik " + msg + " se pridružio razgovoru"
+        outputMessage("server", new Date().toLocaleTimeString(), msgToPrint, "mainChat")
+    }
 })
+//pozovi funkciju koja ce resetovati listu aktivnih korisnika
 socket.on('updatedList', list => {
     resetSidebar(list)
 })
-socket.on('chat', msg => {
+//obavijesti koji je korisnik napustio chat
+socket.on('userOut', msg => {
+    msgToPrint = "Korisnik " + msg + " je napustio razgovor"
+    outputMessage("server", new Date().toLocaleTimeString(), msgToPrint, "mainChat")
+})
+// ispisi novu poruku
+socket.on('newMessage', msg => {
+    outputMessage(msg.posiljaoc, msg.vrijeme, msg.text, "mainChat")
+})
+// prikazi historiju razgovora za odabranog korisnika, ako postoji
+socket.on("newConversation", msg => {
+    console.log(msg)
     for (let i = 0; i < msg.length; i++) {
-      outputMessage(msg[i].posiljaoc,msg[i].vrijeme,msg[i].poruka)
+        outputMessage(msg[i].posiljaoc, msg[i].vrijeme, msg[i].poruka, "privateChat")
     }
 })
-socket.on('userOut',msg => {
-    msgToPrint = "Korisnik " + msg.nick + " je napustio razgovor"
-    outputMessage("server",new Date().toLocaleTimeString(),msgToPrint)
+/*primljena nova privatna poruka, ako je otvoren chat, prikazi obavijest korisniku da ima novu poruku
+i ispisi tu poruku ako je prikazan chat bas sa tim korisnikom*/
+socket.on("privateMessage", msg => {
+    if (msg.posiljaoc === currentUserPrivateChat || msg.primalac === currentUserPrivateChat) {
+        outputMessage(msg.posiljaoc, msg.vrijeme, msg.poruka, "privateChat")
+    }
+    if (msg.posiljaoc != localStorage.getItem('nick')) {
+        zadnjaPoruka = msg.posiljaoc
+        document.querySelector('#new-msg-notifiation').innerHTML = "Imate novu poruku od: " + msg.posiljaoc
+        document.querySelector('#new-msg-notifiation').addEventListener('click', () => {
+            openPrivateChat(msg.posiljaoc)
+        })
+        mainChatToggle.style.display = "none"
+        notification.style.display = "block"
+        setTimeout(function () {
+            mainChatToggle.style.display = "block"
+            notification.style.display = "none"
+        }, 5000);
+    }
 })
-socket.on('newMessage',msg => {
-    console.log(msg)
-    outputMessage(msg.posiljaoc,msg.vrijeme,msg.text)
-})
-
-//// p2p
-// socket.on("1v1message",msg=>{
-//     outputMessage1(msg.posiljaoc,msg.vrijeme,msg.text)
-// })
-socket.on("newConversation",msg=>{
-    console.log(msg)
-   for (let i = 0; i < msg.length; i++) {
-    outputMessage1(msg[i].posiljaoc,msg[i].vrijeme,msg[i].poruka) 
-   }
-})
-socket.on("new1v1Message",msg=>{
-    outputMessage1(msg.posiljaoc,msg.vrijeme,msg.poruka) 
- })
-
-
-function outputMessage(user,time,text) {
-    let class_="";
+// prikazi poruku, i dodjeli klasu u zavisnosti ko salje 
+function outputMessage(user, time, text, destination) {
+    let class_ = "";
     const div = document.createElement('div')
-    // if(user === "server" ){
-    // class_='message-server'
-    // } else if (user === localStorage.getItem("nick")){
-    //     class_='message-user'
-    // } else {
-    //     class_='message-mes'
-    // }
-    div.classList.add('message')    
-
+    if (user === localStorage.getItem("nick")) {
+        class_ = 'message-user'
+    } else if (user === "server") {
+        class_ = 'message-server'
+    } else {
+        class_ = 'message'
+    }
+    div.classList.add(class_)
     div.innerHTML = `
-    <div class="message">
+    <div class="${class_}">
     <p class="meta">${user} <span>${time}</span></p>
     <p class="text">
         ${text}
     </p>
     </div>
    `
-    document.querySelector('.chat-body').appendChild(div)
-    chatMessages.scrollTop = chatMessages.scrollHeight
-}
-function outputMessage1(user,time,text) {
-    let class_="";
-    const div = document.createElement('div')
-    // if(user === "server" ){
-    // class_='message-server'
-    // } else if (user === localStorage.getItem("nick")){
-    //     class_='message-user'
-    // } else {
-    //     class_='message-mes'
-    // }
-    div.classList.add('message')    
+    if (destination === "mainChat") {
+        document.querySelector('.chat-body').appendChild(div)
+        mainChat.scrollTop = mainChat.scrollHeight
 
-    div.innerHTML = `
-    <div class="message">
-    <p class="meta">${user} <span>${time}</span></p>
-    <p class="text">
-        ${text}
-    </p>
-    </div>
-   `
-    document.querySelector('.chat-body1').appendChild(div)
-    chatMessages.scrollTop = chatMessages.scrollHeight
+    } else {
+        document.querySelector('.chat-private').appendChild(div)
+        privateChat.scrollTop = privateChat.scrollHeight
+    }
 }
-const resetSidebar =(list)=> {
-    console.log("asdas")
+// update za listu aktivnih korisnika
+const resetSidebar = (list) => {
     let listUsers = ``
     for (let i = 0; i < list.length; i++) {
         if (list[i] == localStorage.getItem('nick')) continue
         listUsers += `
-        <li onclick="myFunction('${list[i]}')">${list[i]}</>
+        <li onclick="openPrivateChat('${list[i]}')">${list[i]}</>
         `
     }
     listOfActiveUsers.innerHTML = listUsers;
-    chatNav.innerHTML=listUsers;
+    chatNav.innerHTML = listUsers;
 
-}
-function myFunction(e) {
-    //  kad se klikne neki na sidebaru
+}  
+//  prikazi chat sa odabranim korisnikom
+function openPrivateChat(e) {
+    document.querySelector('#openChat').innerHTML = "Vrati se na grupni chat"
     activeChat = "chat1v1"
     user1v1 = e;
-    if(e != currentUser1v1) {
-        // odi po historiju chata ako imay
-        let msg= {"posiljaoc":localStorage.getItem('nick'),"primalac":e}
-        socket.emit('newConversation',msg) 
-        chat1v1.innerHTML=""
-        currentUser1v1=e;
+    if (e != currentUserPrivateChat) {
+        //provjeri da li postoji historija izmedju 2 korisnika
+        let msg = { "posiljaoc": localStorage.getItem('nick'), "primalac": e }
+        socket.emit('newConversation', msg)
+        privateChat.innerHTML = ""
+        currentUserPrivateChat = e;
     }
-    mainChat.style.display="none"
-    chat1v1.style.display="block"
-
+    // sakri grupni, prikazi privatni i podesi vidljivost
+    mainChat.style.display = "none"
+    privateChat.style.display = "block"
+    privateChat.scrollTop = privateChat.scrollHeight
 }
-showMainChat.addEventListener('click',()=>{
+// sakri privatni, prikazi grupni chat i podesi vidljivost poruka
+mainChatToggle.addEventListener('click', () => {
+    document.querySelector('#openChat').innerHTML = "Grupni chat"
     activeChat = "mainChat"
-    mainChat.style.display="block"
-    chat1v1.style.display="none"
+    mainChat.style.display = "block"
+    privateChat.style.display = "none"
+    mainChat.scrollTop = mainChat.scrollHeight
 })
-
-
-/* Set the width of the side navigation to 250px */
-function openNav() {
-    document.getElementById("mySidenav").style.width = "250px";
-    document.querySelector('.trigger-text').style.display = "none";
-}
-
-/* Set the width of the side navigation to 0 */
-function closeNav() {
-    document.getElementById("mySidenav").style.width = "0";
-    document.querySelector('.trigger-text').style.display = "block";
-
-}
+// ako je novi korisnik, pozovi funkciju za generisanje random nika, ako nije smao ucitaj njegov nik
 function getNick() {
     if (localStorage.getItem("nick") === null) {
         generateNick();
     } else {
-        document.querySelector('#nik').innerHTML = localStorage.getItem("nick")
-        socket.emit('makeMeActive', localStorage.getItem("nick")) 
+        document.querySelector('#nick').innerHTML = localStorage.getItem("nick")
+        socket.emit('makeMeActive', localStorage.getItem("nick"))
     }
 }
+// generisanje random nika ali suglasnik/samoglasnik/suglasnik... 
 function generateNick() {
     const nick = [];
     const suglasnici = 'bcdfghjklmnpqrstvwxyz';
@@ -188,22 +186,19 @@ function generateNick() {
                 brojevi.length)));
         }
     }
-    
-    socket.emit("checkNick",nick.join(''))
+    // provjeri da li random nik vec postoji u bazi
+    socket.emit("checkNick", nick.join(''))
 }
-socket.on('checkNick',msg=>{
-    if(msg){
-    document.querySelector('#nik').innerHTML = msg;
-    localStorage.setItem('nick', msg);
-    socket.emit('makeMeActive', msg) 
-    }else {
+//ako je nik unikatan, koristi ga, ako nije ponovo pozovi funkciju za generisanje
+socket.on('checkNick', msg => {
+    if (msg) {
+        document.querySelector('#nick').innerHTML = msg;
+        localStorage.setItem('nick', msg);
+        socket.emit('makeMeActive', msg)
+    } else {
         generateNick()
     }
 })
-function showChat() {
-    document.querySelector('.welcome-container').style.display = "none";
-    document.querySelector('.chat-container').style.display = "flex";
-    //chatMessages.scrollTop = chatMessages.scrollHeight
-    //document.querySelector('#msg').focus();
-}
+
+
 

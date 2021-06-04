@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -10,13 +9,13 @@
 </head>
 
 <body onload="getNick()">
-    <script src="/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js"></script>
     <div class="container">
         <div class="welcome-container">
             <h5>Dobro došli</h5>
             <h5>Vaš nik:</h5>
-            <h5 class="text-center" id="nik">Neki nik</h5>
-            <button class="bg-transparent btn-index" onclick="showChat();">Pridruži se chatu</button>
+            <h5 class="text-center" id="nick">Neki nik</h5>
+            <button id="btnEnter">Pridruži se chatu</button>
         </div>
         <div class="chat-container">
             <div class="col-1">
@@ -26,23 +25,21 @@
             </div>
             <div class="col-2">
                 <div class="chat-header">
-                    <div style="flex-basis: 95%;" type="text" id="show-chat"><p>Imate novu poruku od jaja23</p> </div>
+                    <div   id="mainChatToggle"><p id="openChat">Grupni chat</p> </div>
+                    <div   id="notification"><p id="new-msg-notifiation"></p> </div>
                     <div style="flex-basis: 5%;"  id="toggle"><p>☰</p></div>
                 </div>
-                <div class="chat-nav">
+                <div class="pop-up-list">
                     <h3>Aktivni korisnici</h3> 
-                    <ul class="chat-nav-li">
-
-                    </ul>
-                  
+                    <ul class="pop-up-list-li"></ul>
                 </div>
                 <div class="chat-body">
                 </div>
-                <div class="chat-body1">
+                <div class="chat-private">
                 </div>
                 <div class="chat-footer">
-                    <div class="input-field" style="flex-basis: 85%;"  type="text"><input class="input-field1" type="text"></div>
-                    <div class="btn-send" style="flex-basis:15%;"  type="text"><button class="btn-send1">Pošalji</button></div>
+                    <div class="chat-footer-left"><input class="input-field" type="text"></div>
+                    <div class="chat-footer-right"><button class="btn-send">Pošalji</button></div>
                 </div>
 
             </div>
@@ -52,21 +49,21 @@
     <script src="js/main.js"></script>
 </body>
 <script>
-    let x = document.querySelector('#toggle')
-    let y = document.querySelector('.chat-nav')
-    y.style.height="0px"
-    y.addEventListener('click', () => {
-        y.style.height="0px"
-    })
+    //padajuca lista sa aktivnim korisnicima za mob i tabletm prikazi/sakri
+    const toggle = document.querySelector('#toggle')
+    const popUpList = document.querySelector('.pop-up-list')
 
-    x.addEventListener('click', () => {
-       if(y.style.height == "0px") {
-           y.style.height="50%"
-       }else {
-        y.style.height="0px"
+    popUpList.style.height="0px"
+    popUpList.addEventListener('click', () => {
+        popUpList.style.height="0px"
+    })
+    toggle.addEventListener('click', () => {
+       if(popUpList.style.height == "0px") {
+        popUpList.style.height="50%"
+        }else {
+        popUpList.style.height="0px"
        }
     })
-
 </script>
 
 </html>
