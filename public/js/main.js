@@ -19,7 +19,6 @@ enterBtn.addEventListener('click', () => {
     document.querySelector('.chat-container').style.display = "flex";
     inputForm.focus();
     mainChat.scrollTop = mainChat.scrollHeight;
-    console.log("sdasdasd")
 })
 //provjeri da li je aktivan grupni ili privatni chat, pa posalji poruku
 btnSend.addEventListener('click', (e) => {
