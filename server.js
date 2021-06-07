@@ -6,27 +6,23 @@ const mongojs = require('mongojs')
 const app = express();
 const server = http.createServer(app)
 const io = socketio(server)
-//const db = mongojs('chat', ['chatHistory', 'chatPrivate', 'users'])
+const mongoose = require('mongoose');
 const { findInactiveUsers, updateActiveList, isUserActive, makeOnlineList } = require('./utils/functions')
 const {
-    PORT = 80,
+    PORT = 3000,
     NODE_ENV = "development"
 } = process.env;
-// test
-const mongoose = require('mongoose');
-//test
 
 const IN_PROD = NODE_ENV == "production"
 
 let activeUsers = [] // lista koja cuva aktivne korisnike sa pripadajucim id-ivima konekcija
 
-
-// Connect to MongoDB
+// konekcija na mongodb
 mongoose
     .connect(
         //'mongodb://mongo:27017/chat-node',
         'mongodb://localhost:27017/',
-        { useNewUrlParser: true }
+        {useNewUrlParser: true, useUnifiedTopology: true}
     )
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log(err));
@@ -34,8 +30,6 @@ mongoose
 const ChatHistory = require('./models/ChatHistory');
 const User = require('./models/User');
 const ChatPrivate = require('./models/ChatPrivate');
-
-
 
 app.use(express.static(path.join(__dirname, 'public')))
 
@@ -50,17 +44,6 @@ io.on('connection', socket => {
     })
         .catch(err => console.log(err));
 
-    /*
-    db.chatHistory.find({}, (err, data) => {
-        socket.emit('Chat-history', data)
-        socket.emit('WelcomeMessage', 'Dobro došli na chat!')
-        let clients =Object.keys(io.sockets.sockets); 
-        let onlineUsers = makeOnlineList(clients,activeUsers)
-        socket.emit('updatedList',onlineUsers)    
-    })
-    */
-
-
     //novi korisnik ako random nik vec postoji u bazi, vrati false, a frontend ce generisati novi nik
     //i taka sve dok ne dobije slobodan nik, kad dobije slobodan nik spremi ga u bazu i vrati korisniku true tj. nik
     socket.on('checkNick', (nick) => {
@@ -68,34 +51,16 @@ io.on('connection', socket => {
         ChatHistory.findOne({user:nick}).then(result => {
             if (!result) {
                 socket.emit('checkNick', nick)
-
                 const user = new User({
                     user: nick,
                 });
                 user.save().then(item => {
                 });
-
-                // db.users.insert({ "user": nick }, err => {
-                //     if (err) throw err
-                // })
             } else {
                 socket.emit('checkNick', false)
             }
 
         })
-
-
-        /* db.users.findOne({ "user": nick }, (err, result) => {
-        //     if (err) throw err;
-        //     if (!result) {
-        //         socket.emit('checkNick', nick)
-        //         db.users.insert({ "user": nick }, err => {
-        //             if (err) throw err
-        //         })
-        //     } else {
-        //         socket.emit('checkNick', false)
-        //     }
-         }) */
     })
 
     socket.on('makeMeActive', user => {
@@ -112,12 +77,10 @@ io.on('connection', socket => {
             let onlineUsers = makeOnlineList(clients, activeUsers)
             socket.broadcast.emit('updatedList', onlineUsers)
         } else {
-
             activeUsers.push(newUser)
             let onlineUsers = makeOnlineList(clients, activeUsers)
             socket.broadcast.emit('updatedList', onlineUsers)
         }
-
     })
     /*kada korisnik izadje, obavjesti ostale sudionike,
     osim ako ima jos aktivnih tabova*/
@@ -151,35 +114,19 @@ io.on('connection', socket => {
         chatHistory.save().then(item => {
             io.emit('newMessage', msg)
         });
-        /*db.chatHistory.insert({ "posiljaoc": msg.posiljaoc, 'vrijeme': msg.vrijeme, "poruka": msg.text }, (err, messages) => {
-            if (err) throw err
-            io.emit('newMessage', msg)
-        })*/
     })
     // novi privatni razgovor
     /* Provjeri u bp da li postoji historija otvorenog razgovora,
     ako postoji, posalji je  */
-
-
     socket.on('newConversation', msg => {
         let primalac = msg.primalac;
         let posiljaoc = msg.posiljaoc;
-
-
         ChatPrivate.find({
             $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
             { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }]
         }).then(data => {
             socket.emit("newConversation", data)
         }).catch(err => console.log(err));
-
-        // db.chatPrivate.find({
-        //     $or: [{ $and: [{ "posiljaoc": posiljaoc }, { "primalac": primalac }] },
-        //     { $and: [{ "posiljaoc": primalac }, { "primalac": posiljaoc }] }]
-        // }, (err, result) => {
-        //     if (err) throw err
-        //     socket.emit("newConversation", result)
-        // })
     })
     
     /* nova poruka u privatnom razgovoru,
@@ -200,24 +147,12 @@ io.on('connection', socket => {
             }
         })
         .catch(err => console.log(err));
-
-       
-       
-        /* db.chatPrivate.insert(msg, (err) => {
-            if (err) throw err
-            for (let i = 0; i < activeUsers.length; i++) {
-                if (activeUsers[i].nick === msg.posiljaoc || activeUsers[i].nick === msg.primalac) {
-                    io.to(activeUsers[i].id).emit("privateMessage", msg)
-                }
-            }
-        })*/
     })
 
 })
 
 
-
 server.listen(PORT, () => {
-    console.log('slusam na 3000');
+    console.log('slusam na port 3000');
 })
 

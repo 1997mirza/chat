@@ -6,8 +6,6 @@ services:
         build: .
         ports:
             - "80:3000"
-        volumes:
-            - .:/code
         links:
             - mongo
     mongo:
